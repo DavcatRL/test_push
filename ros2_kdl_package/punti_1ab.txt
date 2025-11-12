@@ -1,0 +1,75 @@
+1a)
+Per soddisfare questa prima richiesta, abbiamo sostituito all'interno del ros2_kdl_node le definizioni delle variabili scirtte nella consegna con dei parametri impostabili dall'esterno, definendone anche i valori predefiniti.
+
+<screenshot def parametri>
+
+Come richiesto poi, abbiamo creato un file .yaml all'interno di una nuova cartella config inserita nel nodo stesso. I valori inseriti come coordinate della posizione finale sono gli stessi che sono dati di default nel codice kdl_node, basati sulla posizione iniziale del robot. Per ottenerli ne abbiamo semplicemente fatta una stampa da terminale. 
+
+<screenshot cartella e file .yaml>
+
+Infine, per poter utilizzare il nodo in maniera più compatta ed immediata, abbiamo creato un launch file per permettere l'avvio simultaneo della simulazione del robot in rviz e del nostro kdl_node, considerando anche la possibilità di definire come argomenti del launch il tipo di controllore che si vuole utilizzare tra le tre possibilità predefinite, caricandolo quindi anche nella simulazione.
+
+<screenshot del launch file>
+
+I comandi con cui è possibile utilizzare tale launch quindi sono i seguenti, in base al controllore che si sceglie:
+ros2 launch ros2_kdl_package iiwa_kdl.launch.py
+ros2 launch ros2_kdl_package iiwa_kdl.launch.py command_interface:="velocity" robot_controller:="velocity_controller" cmd_interface:=velocity
+Di default, il controller caricato è il position controller, per cui non è necessario nel primo caso specificare argomenti.
+
+Infine abbiamo aggiunto un paio di righe al readme per integrare la nuova funzionalità.
+
+<screenshot righe readme>
+
+
+1b)
+
+La richiesta in questo caso era di definire un nuovo controllore che implementasse la legge di controllo di velocità descritta nella traccia. Per fare ciò abbiamo seguito i seguenti passi:
+
+- definizione all'interno della classe KDLController in kdl_control.h. (argomenti da passare?)
+<screenshot classe>
+
+- implementazione della legge di controllo nel file kdl_control.cpp
+<screenshot implementazione>
+
+- utilizzo all'interno del nodo di controllo ros2_kdl_node. Per poter utilizzare tale nuovo controllore di velocità, abbiamo optato per definire un nuovo parametro aggiuntivo all'interno del nostro nodo, identificato dalla stringa 'ctrl'. Tale parametro serve a identificare quale controllore di velocità si vuole utililzzare tra quelli a disposizione, ovvero il semplice controllore di velocità già definito ed il nuovo controllore da noi implementato. 
+Successivamente, abbiamo definito il nuovo controllore come oggetto della classe appena creata, in odo tale da poterlo utilizzare. Tutti i parametri da esso utilizzati, come gli argomenti da passargli, come il setting del frame desiderato e dei joints limit o il guadagno kp, erano già definiti nel codice, per cui è stata necessaria solo un'ulteriore modifica al publisher in cui andare a discriminare, in base al valore del parametro ctrl, quale dei due controllori di velocità doveva pubblicare il messaggio relativo alla traiettoria da seguire.
+Le modifiche sono state integrate anche all'interno del launch file.
+
+<screeenshots delle modifiche>
+<modifiche al launch>
+
+Per plottare e confrontare i grafici dell'andamento della posizione del robot relativa ai due controllori di velocità, la prima cosa da fare è stata salvare i dati relativi ad essi attraverso una registrazione con ros2 bag. 
+Per primo abbiamo registrato l'andamento relativo al semplice controllore di velocità. Aperto un terminale, abbiamo avviato la simulazione in rviz. In un secondo terminale poi, abbiamo avviato la registrazione tramite: 
+
+ros2 bag record /joint_states /velocity_controller/commands -o bag_velocity
+
+Questo comando registra le posizioni articolari reali (/joint_states) e le velocità comandate inviate al controller (/velocity_controller/commands). Il bag è stato salvato nella cartella bag_velocity/, creata automaticamente dal comando, all'interno del workspace ros, successivamente spostata nel pacchetto iiwa_kdl_package, nella sottocartella bags. Successivamente, in un terzo terminale abbiamo lanciato il nodo con:
+
+ros2 run ros2_kdl_package ros2_kdl_node --ros-args -p cmd_interface:=velocity
+
+Stesso procedimento per registrare l'andamento relativo al controllore velocity_null. Stavolta però i comandi sono stati:
+
+ros2 bag record /joint_states /velocity_controller/commands -o bag_velocity_null
+ros2 run ros2_kdl_package ros2_kdl_node --ros-args -p cmd_interface:=velocity_null
+
+Salvati i dati, per plottare gli andamenti richiesti abbiamo utilizzato il plugin plot di rqt. Per ogni grafico da plottare abbiamo fatto partire la registrazione in un terminale con i comandi seguenti e inserito nella barra di rqt_plot il topic da "ascoltare".
+
+ros2 bag play ~/ros2_ws/src/ros2_kdl_package/bags/bag_velocity
+ros2 bag play ~/ros2_ws/src/ros2_kdl_package/bags/bag_velocity_null
+<screenshot rqt_plot>
+
+Per visualizzare i topics salvati nel bag:
+ros2 bag info ~/ros2_ws/src/ros2_kdl_package/bags/bag_velocity
+
+
+per vedere più topics insieme: /joint_states/position[0] /joint_states/position[1] /joint_states/position[2]
+ros2 topic echo /joint_states
+per sapere quale giunto è quale
+
+
+
+
+
+
+
+
